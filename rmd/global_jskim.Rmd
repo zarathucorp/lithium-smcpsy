@@ -1,0 +1,88 @@
+---
+title: "Lithium & Valproate"
+author: "차라투 주식회사"
+date: "`r Sys.Date()`"
+output:
+html_document: 
+dev: jpeg
+df_print: paged
+fig_height: 6
+fig_width: 10
+highlight: textmate
+theme: cosmo
+toc: yes
+toc_float:
+  collapsed: no
+code_folding: show
+word_document:
+  toc: yes
+toc_depth: '3'
+bookdown::word_document2:
+  fig_caption: yes
+editor_options:
+  chunk_output_type: console
+always_allow_html: yes
+---
+  
+<style>
+p {line-height: 2.5em;}
+pre, code {white-space:pre !important; overflow-x:scroll !important}
+</style>
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = T, message = F, warning = F)
+```
+
+
+## 총처방일수, qd 비율
+
+```{r qdratio, echo=F}
+library(data.table);library(magrittr);library(DT)
+#setwd("~/ShinyApps/jihyunbaek/lithium")
+lithium <- readRDS("lithium.RDS")
+
+
+
+## 총처방일수, qd 비율
+
+#총9538명
+df <-lithium$MEDI[, c("환자번호","처방일","처방명","일수","횟수")] 
+names(df) <- c("환자번호","date","drug","day","times")
+df[, drug := ifelse(drug == "Lithium carbonate 300mg", "Lithium", "Valproate")]
+
+df <- unique(df)
+df <- df[order(-day), .(maxday = max(day), maxnotqd = day[which(times != 1)[1]]), by=c("환자번호","date","drug")]
+df <- df[, .(maxday, qd = ifelse(is.na(maxnotqd), maxday , maxday - maxnotqd)), by=c("환자번호","date","drug")]
+df <- df[, .(totDay = sum(maxday), qd = sum(qd)/sum(maxday)),by = c("환자번호", "drug")]
+
+
+#처방기록이 있는 사람은 9493명
+#valproate 처방 7417명, lithium 처방 3287명
+#df <- reshape(df, timevar="drug", idvar="환자번호", direction="wide")
+
+## dcast with data.table
+df.long <- dcast(df, `환자번호` ~ drug, value.var = c("totDay", "qd"))
+
+
+#left_join 위해서 환자번호의 class를 맞춰주기
+lithium$`clinical data`$환자번호 <- lithium$`clinical data`$환자번호 %>% as.numeric() %>% as.character()
+df.long$환자번호 <- df.long$환자번호 %>% as.character()
+lithium$`clinical data` <- merge(lithium$`clinical data`, df.long, by = "환자번호")
+
+
+datatable(df.long, filter = "top", rownames = F, colnames = c("환자번호", "리튬 총복용일수", "Valproate 총복용일수", "리튬 QD 비율", "Valproate QD 비율")) %>% 
+  formatRound(4:5, 2)
+
+```
+
+## Histogram
+
+```{r, echo=F}
+summary(df.long[, 4:5])
+
+
+library(ggplot2)
+ggplot(df, aes(qd, y=(..count..)/sum(..count..))) + geom_histogram(position="identity", alpha=0.4) + scale_y_continuous(labels = scales::percent) + facet_wrap(~  drug) +
+  xlab("QD 비율") + ylab("Percent")
+
+```
