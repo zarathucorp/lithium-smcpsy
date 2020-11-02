@@ -56,9 +56,6 @@ df.long <- dcast(df, `환자번호` ~ drug, value.var = c("totDay", "qd"))
 lithium$`clinical data`$환자번호 <- lithium$`clinical data`$환자번호 %>% as.numeric() %>% as.character()
 df.long$환자번호 <- df.long$환자번호 %>% as.character()
 lithium$`clinical data` <- merge(lithium$`clinical data`, df.long, by = "환자번호")
-
-# datatable(df.long, filter = "top", rownames = F, colnames = c("환자번호", "리튬 총복용일수", "Valproate 총복용일수", "리튬 QD 비율", "Valproate QD 비율")) %>% 
-#   formatRound(4:5, 2)
 ```
 
 
@@ -70,9 +67,8 @@ lithium$`clinical data` <- merge(lithium$`clinical data`, df.long, by = "환자�
 <!--   xlab("QD 비율") + ylab("Percent") -->
 <!-- ``` -->
 
-## KM Plot
-```{r KM, echo=F}
-
+## Data inclusion and Lithium Toxicity
+```{r Data, echo=F}
 # Data inclusion - 총처방일수 180일 초과 : tot = 4360
 a<-lithium$`clinical data`[xor(is.na(totDay_Lithium),is.na(totDay_Valproate)) & (totDay_Lithium>180 | totDay_Valproate>180),
                         .(환자번호,성별,생년월일,totDay_Lithium,totDay_Valproate,qd_Lithium,qd_Valproate),]
@@ -84,9 +80,13 @@ a<-merge(a,df[`세부검사명`=="Lithium" & `결과`>1.0,.N,by="환자번호"],
 setnames(a,"N","LithiumToxicity")
 a$LithiumToxicity<-ifelse(is.na(a$LithiumToxicity),0,a$LithiumToxicity)
 
-# 3409 : a[!is.na(totDay_Valproate),.N,]
-# 189 : a[LithiumToxicity!=0,.N,]
-# 951 : a[!is.na(totDay_Lithium),.N,]
+datatable(a[,-(6:7),], filter = "top", rownames = F,
+          colnames = c("환자번호", "성별","생년월일","Lithium 총복용일수", "Valproate 총복용일수", "Lithium Toxicity")) %>% 
+   formatRound(4:5, 2)
+```
+
+## KM Plot
+```{r KM, echo=F}
 
 # firstPrescriptionDay
 df<-lithium$MEDI
@@ -107,41 +107,36 @@ CKDEPI<-function(scr,age,sex){
 
 df<-lithium$`renal function & TDM`
 df$환자번호 <- df$환자번호 %>% as.character()
-
 df<-merge(df,lithium$`clinical data`[,.(`환자번호`,`성별`,`생년월일`),],by="환자번호",mult=all)
-
 df$`결과`<- df$`결과` %>% as.numeric()
 df$시행일시 <- df$시행일시 %>% as.Date(); df$생년월일 <- df$생년월일 %>% as.Date()
 setnames(df,c("세부검사명","시행일시","생년월일","결과","성별"),c("test","testDate","birthDate","result","sex"))
-
 df[,age:=as.numeric(testDate-birthDate)/365.25]
-
 df[,eGFR:=ifelse(test=="Creatinine",CKDEPI(result,age,sex),NA),by=seq_len(nrow(df))]
 
 a<-merge(a,df[eGFR<60,.(eGFRbelow60Date=min(testDate)),by="환자번호"],all.x=TRUE)
 a[,duration:=ifelse(is.na(eGFRbelow60Date),as.Date(lastPrescriptionDay)-as.Date(firstPrescriptionDay),as.Date(eGFRbelow60Date)-as.Date(firstPrescriptionDay)),]
 a[,drug:=ifelse(is.na(totDay_Lithium),"Valproate","Lithium"),]
+a[,eGFRbelow60:=ifelse(is.na(eGFRbelow60Date),F,T),]
 
 library(ggplot2)
 library(survminer)
 library(survival)
-
-a[,eGFRbelow60:=ifelse(is.na(eGFRbelow60Date),F,T),]
 
 ggsurvplot(
     fit = survfit(Surv(duration, eGFRbelow60) ~ drug, data = a),
     xlab = "Days", 
     ylab = "eGFR below 60",
     size = 0.3,                 
-    conf.int = TRUE,          # Add confidence interval
-    pval = TRUE,              # Add p-value
+    conf.int = TRUE,          
+    pval = TRUE,              
     risk.table = "percentage",
-    risk.table.col = "strata",# Risk table color by groups
-    legend.labs = c("Lithium", "Valproate"),    # Change legend labels
-    risk.table.height = 0.25, # Useful to change when you have multiple groups
+    risk.table.col = "strata",
+    legend.labs = c("Lithium", "Valproate"),
+    risk.table.height = 0.25,
     risk.table.y.text = FALSE,
     break.time.by = 1000,
-    ggtheme = theme_bw()      # Change ggplot2 theme
+    ggtheme = theme_bw()
 )
 
 ```
@@ -149,9 +144,11 @@ ggsurvplot(
 
 ## Cumulative Prescription Day - eGFR
 ```{r cumDay-eGFR, echo=F}
+# 검사 정보
 bb<-df[!is.na(eGFR),.(`환자번호`,testDate,eGFR)]
 setnames(bb,"testDate","date")
 
+# 처방 정보
 df <-lithium$MEDI[, c("환자번호","처방일","처방명","일수","횟수")]
 names(df) <- c("환자번호","date","drug","day","times")
 df[, drug := ifelse(drug == "Lithium carbonate 300mg", "Lithium", "Valproate")]
@@ -160,6 +157,7 @@ df$환자번호<-df$환자번호 %>% as.character()
 df$date<-df$date %>% as.Date()
 df <- df[, .(maxday=max(day)), by=c("환자번호","date","drug")]
 
+# 일단 합친 후 cumsum
 b<-rbindlist(list(bb,df),use.names = TRUE, fill=TRUE)[order(`환자번호`,date)]
 b[,maxday:=ifelse(is.na(maxday),0,maxday),]
 b[,cumulativePrescriptionDay:=cumsum(maxday),by=.(`환자번호`)]
