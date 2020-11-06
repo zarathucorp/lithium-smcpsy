@@ -1,6 +1,6 @@
 ---
 title: "Lithium & Valproate"
-author: "Heejoo"
+author: "차라투 주식회사"
 date: "`r Sys.Date()`"
 output:
 html_document: 
@@ -33,40 +33,140 @@ pre, code {white-space:pre !important; overflow-x:scroll !important}
 knitr::opts_chunk$set(echo = T, message = F, warning = F)
 ```
 
-## Load & Input
-```{r input, echo=FALSE}
-library(dplyr)
-lithium<-readRDS("lithium.RDS")
-```
 
 ## 총처방일수, qd 비율
-```{r qdratio}
-library(plyr)
-library(data.table)
-library(DT)
 
+```{r qdratio, echo=F}
+library(data.table);library(magrittr);library(DT)
+lithium <- readRDS("lithium.RDS")
+
+## 총처방일수, qd 비율
 #총9538명
-df<-lithium$MEDI %>% select("환자번호","처방일","처방명","일수","횟수")
-names(df)<-c("환자번호","date","drug","day","times")
-df$drug<-ifelse(df$drug=="Lithium carbonate 300mg","Lithium","Valproate")
-df<-unique(df)
+df <-lithium$MEDI[, c("환자번호","처방일","처방명","일수","횟수")] 
+names(df) <- c("환자번호","date","drug","day","times")
+df[, drug := ifelse(drug == "Lithium carbonate 300mg", "Lithium", "Valproate")]
+df <- unique(df)
+df <- df[order(-day), .(maxday = max(day), maxnotqd = day[which(times != 1)[1]]), by=c("환자번호","date","drug")]
+df <- df[, .(maxday, qd = ifelse(is.na(maxnotqd), maxday , maxday - maxnotqd)), by=c("환자번호","date","drug")]
+df <- df[, .(totDay = sum(maxday), qd = sum(qd)/sum(maxday)),by = c("환자번호", "drug")]
 
-df<-df[order(-day),.(maxday=max(day),maxnotqd=day[which(times!=1)[1]]),by=c("환자번호","date","drug")]
-df<-df[,.(maxday,qd=ifelse(is.na(maxnotqd),maxday,maxday-maxnotqd)),by=c("환자번호","date","drug")]
-df<-df[,.(totDay=sum(maxday),qd=sum(qd)/sum(maxday)),by=c("환자번호","drug")]
-
-#처방기록이 있는 사람은 9493명
-#valproate 처방 7417명, lithium 처방 3287명
-
-df<-reshape(df,timevar="drug",idvar="환자번호",direction="wide")
+df.long <- dcast(df, `환자번호` ~ drug, value.var = c("totDay", "qd"))
 
 #left_join 위해서 환자번호의 class를 맞춰주기
-lithium$`clinical data`$환자번호<-lithium$`clinical data`$환자번호 %>% as.numeric() %>% as.character()
-df$환자번호<-df$환자번호 %>% as.character()
-
-lithium$`clinical data`<-left_join(lithium$`clinical data`, df, by = "환자번호")
-
-lithium$`clinical data` %>% select("환자번호","성명","생년월일","totDay.Valproate","qd.Valproate","totDay.Lithium","qd.Lithium") %>% datatable
+lithium$`clinical data`$환자번호 <- lithium$`clinical data`$환자번호 %>% as.numeric() %>% as.character()
+df.long$환자번호 <- df.long$환자번호 %>% as.character()
+lithium$`clinical data` <- merge(lithium$`clinical data`, df.long, by = "환자번호")
 ```
 
 
+<!-- ## Histogram -->
+<!-- ```{r, echo=F} -->
+<!-- summary(df.long[, 4:5]) -->
+<!-- library(ggplot2) -->
+<!-- ggplot(df, aes(qd, y=(..count..)/sum(..count..))) + geom_histogram(position="identity", alpha=0.4) + scale_y_continuous(labels = scales::percent) + facet_wrap(~  drug) + -->
+<!--   xlab("QD 비율") + ylab("Percent") -->
+<!-- ``` -->
+
+## Data inclusion and Lithium Toxicity
+```{r Data, echo=F}
+# Data inclusion - 총처방일수 180일 초과 : tot = 4360
+a<-lithium$`clinical data`[xor(is.na(totDay_Lithium),is.na(totDay_Valproate)) & (totDay_Lithium>180 | totDay_Valproate>180),
+                        .(환자번호,성별,생년월일,totDay_Lithium,totDay_Valproate,qd_Lithium,qd_Valproate),]
+
+# LithiumToxicity
+df<-lithium$`renal function & TDM`
+df$환자번호 <- df$환자번호 %>% as.character()
+a<-merge(a,df[`세부검사명`=="Lithium" & `결과`>1.0,.N,by="환자번호"],by="환자번호",all.x=TRUE)
+setnames(a,"N","LithiumToxicity")
+a$LithiumToxicity<-ifelse(is.na(a$LithiumToxicity),0,a$LithiumToxicity)
+
+datatable(a[,-(6:7),], filter = "top", rownames = F,
+          colnames = c("환자번호", "성별","생년월일","Lithium 총복용일수", "Valproate 총복용일수", "Lithium Toxicity")) %>% 
+   formatRound(4:5, 2)
+```
+
+## KM Plot
+```{r KM, echo=F}
+
+# firstPrescriptionDay
+df<-lithium$MEDI
+df$환자번호 <- df$환자번호 %>% as.character()
+setnames(df,"처방일","date")
+a<-merge(a,df[,.(firstPrescriptionDay=min(date)),by="환자번호"],by="환자번호",all.x=TRUE)
+
+# lastPrescriptionDay
+a<-merge(a,df[,.(lastPrescriptionDay=max(date)),by="환자번호"],by="환자번호",all.x=TRUE)
+
+# CKD-EPI
+CKDEPI<-function(scr,age,sex){
+  if(sex=="F"){ k<-0.7; alpha<-(-0.329); const<-1.018 }
+  else{ k<-0.9; alpha<-(-0.411); const<-1 }
+  GFR <- 141 * min(scr/k,1)^alpha * max(scr/k,1)^(-1.209) * 0.993^age * const
+  return(GFR)
+}
+
+df<-lithium$`renal function & TDM`
+df$환자번호 <- df$환자번호 %>% as.character()
+df<-merge(df,lithium$`clinical data`[,.(`환자번호`,`성별`,`생년월일`),],by="환자번호",mult=all)
+df$`결과`<- df$`결과` %>% as.numeric()
+df$시행일시 <- df$시행일시 %>% as.Date(); df$생년월일 <- df$생년월일 %>% as.Date()
+setnames(df,c("세부검사명","시행일시","생년월일","결과","성별"),c("test","testDate","birthDate","result","sex"))
+df[,age:=as.numeric(testDate-birthDate)/365.25]
+df[,eGFR:=ifelse(test=="Creatinine",CKDEPI(result,age,sex),NA),by=seq_len(nrow(df))]
+
+a<-merge(a,df[eGFR<60,.(eGFRbelow60Date=min(testDate)),by="환자번호"],all.x=TRUE)
+a[,duration:=ifelse(is.na(eGFRbelow60Date),as.Date(lastPrescriptionDay)-as.Date(firstPrescriptionDay),as.Date(eGFRbelow60Date)-as.Date(firstPrescriptionDay)),]
+a[,drug:=ifelse(is.na(totDay_Lithium),"Valproate","Lithium"),]
+a[,eGFRbelow60:=ifelse(is.na(eGFRbelow60Date),F,T),]
+
+library(ggplot2)
+library(survminer)
+library(survival)
+
+ggsurvplot(
+    fit = survfit(Surv(duration, eGFRbelow60) ~ drug, data = a),
+    xlab = "Days", 
+    ylab = "eGFR below 60",
+    size = 0.3,                 
+    conf.int = TRUE,          
+    pval = TRUE,              
+    risk.table = "percentage",
+    risk.table.col = "strata",
+    legend.labs = c("Lithium", "Valproate"),
+    risk.table.height = 0.25,
+    risk.table.y.text = FALSE,
+    break.time.by = 1000,
+    ggtheme = theme_bw()
+)
+
+```
+
+
+## Cumulative Prescription Day - eGFR
+```{r cumDay-eGFR, echo=F}
+# 검사 정보
+bb<-df[!is.na(eGFR),.(`환자번호`,testDate,eGFR)]
+setnames(bb,"testDate","date")
+
+# 처방 정보
+df <-lithium$MEDI[, c("환자번호","처방일","처방명","일수","횟수")]
+names(df) <- c("환자번호","date","drug","day","times")
+df[, drug := ifelse(drug == "Lithium carbonate 300mg", "Lithium", "Valproate")]
+df <- unique(df)
+df$환자번호<-df$환자번호 %>% as.character()
+df$date<-df$date %>% as.Date()
+df <- df[, .(maxday=max(day)), by=c("환자번호","date","drug")]
+
+# 일단 합친 후 cumsum
+b<-rbindlist(list(bb,df),use.names = TRUE, fill=TRUE)[order(`환자번호`,date)]
+b[,maxday:=ifelse(is.na(maxday),0,maxday),]
+b[,cumulativePrescriptionDay:=cumsum(maxday),by=.(`환자번호`)]
+
+b<-b[!is.na(eGFR),!c("maxday","drug"),]
+b<-merge(b,a[,.(`환자번호`,drug),],by="환자번호")
+
+ggplot(b,aes(x=cumulativePrescriptionDay,y=eGFR))+
+  geom_point(color="coral2",size=0.3)+
+  geom_smooth()+
+  facet_grid(~drug)
+```
