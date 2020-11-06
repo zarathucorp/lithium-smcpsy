@@ -37,7 +37,7 @@ ui <- navbarPage("Lithium",
                           sidebarLayout(
                             sidebarPanel(
                               radioButtons("drug_fig1", "Drug", c("Lithium", "Valproate"), inline = T)
-                
+                              
                             ),
                             mainPanel(
                               withLoader(plotOutput("fig1"), type="html", loader="loader6"),
@@ -193,4 +193,3 @@ server <- function(input, output, session) {
 
 
 shinyApp(ui, server)
-                 
