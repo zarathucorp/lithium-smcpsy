@@ -110,7 +110,8 @@ server <- function(input, output, session) {
   
   
   obj.fig1 <- reactive({
-    ggplot(data.f1[drug == input$drug_fig1], aes(x=cumulativePrescriptionDay/365.25,y=eGFR))+
+    dr <- ifelse(input$drug_fig1 == "Lithium", 1, 0)
+    ggplot(data.f1[drug == dr], aes(x=cumulativePrescriptionDay/365.25,y=eGFR))+
       geom_point(color="coral2",size=0.3)+
       geom_smooth()+ theme_bw() + xlab("Cumulative years")
   })
