@@ -36,7 +36,6 @@ ui <- navbarPage("Lithium",
                  tabPanel("Figure 1", icon = icon("percentage"),
                           sidebarLayout(
                             sidebarPanel(
-                              radioButtons("drug_fig1", "Drug", c("Lithium", "Valproate"), inline = T)
                               
                             ),
                             mainPanel(
@@ -110,10 +109,11 @@ server <- function(input, output, session) {
   
   
   obj.fig1 <- reactive({
-    dr <- ifelse(input$drug_fig1 == "Lithium", 1, 0)
-    ggplot(data.f1[drug == dr], aes(x=cumulativePrescriptionDay/365.25,y=eGFR))+
+    zz <- data.f1[, .SD]
+    zz$drug <- ifelse(zz$drug == 1, "Lithium", "Valproate")
+    ggplot(zz, aes(x=cumulativePrescriptionDay/365.25,y=eGFR))+
       geom_point(color="coral2",size=0.3)+
-      geom_smooth()+ theme_bw() + xlab("Cumulative years")
+      geom_smooth()+ theme_bw() + xlab("Cumulative years") + facet_wrap(~ drug)
   })
   
   
@@ -145,7 +145,7 @@ server <- function(input, output, session) {
   
   output$downloadButton_fig1 <- downloadHandler(
     filename =  function() {
-      paste(input$drug_fig1, "_plot.", input$fig1_file_ext ,sep="")
+      paste("fig1.", input$fig1_file_ext ,sep="")
     },
     # content is a function with argument file. content writes the plot to the device
     content = function(file) {

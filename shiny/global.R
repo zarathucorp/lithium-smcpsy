@@ -82,12 +82,14 @@ setnames(data.f1, "testDate", "date")
 
 ## Main data
 
-data.main <- merge(data.main, df[eGFR < 60, .(eGFRbelow60Date = min(testDate)), by = "환자번호"], all.x = TRUE)
-data.main <- merge(data.main, df[test == "Creatinine", .(testNum = .N), by="환자번호"], by="환자번호", all.x=TRUE)[!is.na(testNum)]
-data.main <- data.main[is.na(eGFRbelow60Date) | as.Date(firstPrescriptionDay) < as.Date(eGFRbelow60Date)]
+data.main <- merge(data.main, df[eGFR < 60, .(eGFRbelow60Date = min(testDate)), by = "환자번호"], all.x = TRUE) %>% 
+  merge(df[test == "Creatinine", .(testNum = .N), by="환자번호"], by="환자번호", all.x=TRUE) %>% 
+  .[!is.na(testNum) & (is.na(eGFRbelow60Date) | as.Date(firstPrescriptionDay) < as.Date(eGFRbelow60Date))] 
+  
+
 data.main[, duration := ifelse(is.na(eGFRbelow60Date),as.Date(lastPrescriptionDay) - as.Date(firstPrescriptionDay), as.Date(eGFRbelow60Date) - as.Date(firstPrescriptionDay))]
 data.main[, drug := factor(ifelse(is.na(totDay_Lithium), 0, 1))]
-data.main[, eGFRbelow60 := factor(as.integer(is.na(eGFRbelow60Date)))]
+data.main[, eGFRbelow60 := factor(as.integer(!is.na(eGFRbelow60Date)))]
 data.main[, `:=`(year_FU= duration/365.25, totYear_Lithium = totDay_Lithium/365.25, totYear_Valproate = totDay_Valproate/365.25)]
 setnames(data.main, "성별", "Sex")
 data.main[, Sex := factor(Sex)]
