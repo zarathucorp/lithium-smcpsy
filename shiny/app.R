@@ -36,7 +36,7 @@ ui <- navbarPage("Lithium",
                  tabPanel("Figure 1", icon = icon("percentage"),
                           sidebarLayout(
                             sidebarPanel(
-                              
+                              checkboxInput("onefig1", "with 1 plot", F)
                             ),
                             mainPanel(
                               withLoader(plotOutput("fig1"), type="html", loader="loader6"),
@@ -111,9 +111,16 @@ server <- function(input, output, session) {
   obj.fig1 <- reactive({
     zz <- data.f1[, .SD]
     zz$drug <- ifelse(zz$drug == 1, "Lithium", "Valproate")
-    ggplot(zz, aes(x=cumulativePrescriptionDay/365.25,y=eGFR))+
-      geom_point(color="coral2",size=0.3)+
-      geom_smooth()+ theme_bw() + xlab("Cumulative years") + facet_wrap(~ drug)
+    if (input$onefig1 == F){
+      ggplot(zz, aes(x=cumulativePrescriptionDay/365.25,y=eGFR))+
+        geom_point(color="coral2",size=0.1)+
+        geom_smooth()+ theme_bw() + xlab("Cumulative years") + facet_wrap(~ drug)
+    } else{
+      ggplot(zz, aes(x=cumulativePrescriptionDay/365.25,y=eGFR, color = drug))+
+        geom_point(aes(fill=drug), size=0.1)+
+        geom_smooth()+ theme_bw() + xlab("Cumulative years")
+    }
+    
   })
   
   
@@ -187,9 +194,7 @@ server <- function(input, output, session) {
     )  %>% formatStyle("sig", target = 'row',backgroundColor = styleEqual("**", 'yellow'))
   })
   
-  session$onSessionEnded(function() {
-    stopApp()
-  })
+ 
 }
 
 
