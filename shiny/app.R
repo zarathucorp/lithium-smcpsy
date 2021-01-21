@@ -33,6 +33,16 @@ ui <- navbarPage("Lithium",
                           )
                           
                  ),
+                 tabPanel("Logistic regression",
+                          sidebarLayout(
+                            sidebarPanel(
+                              regressModuleUI("logistic")
+                            ),
+                            mainPanel(
+                              withLoader(DTOutput("logistictable"), type="html", loader="loader6")
+                            )
+                          )
+                 ),
                  tabPanel("Figure 1", icon = icon("percentage"),
                           sidebarLayout(
                             sidebarPanel(
@@ -106,6 +116,20 @@ server <- function(input, output, session) {
     }
     return(out.tb1)
   })
+  
+  out_logistic <- callModule(logisticModule2, "logistic", data = reactive(data.main), data_label = reactive(label.main), data_varStruct = reactive(varlist_kmcox), nfactor.limit = nfactor.limit, default.unires = F)
+  
+  output$logistictable <- renderDT({
+    hide = which(colnames(out_logistic()$table) == "sig")
+    datatable(out_logistic()$table, rownames=T, extensions = "Buttons", caption = out_logistic()$caption,
+              options = c(jstable::opt.tbreg(out_logistic()$caption),
+                          list(columnDefs = list(list(visible=FALSE, targets =hide))
+                          ),
+                          list(scrollX = TRUE)
+              )
+    ) %>% formatStyle("sig", target = 'row',backgroundColor = styleEqual("**", 'yellow'))
+  })
+  
   
   
   obj.fig1 <- reactive({
