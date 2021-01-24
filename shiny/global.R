@@ -179,10 +179,17 @@ Year_N<-data.frame(Year=0:26,
 
 ## 5년 뒤, 10년 뒤 eGFR<60의 비율 (n수) ----------------------------------------
 
-eGFRbelow60ratio<-rbind(c(5,data.main[!is.na(year5GFR),.N,],data.main[year5GFR<60,.N,],round(data.main[year5GFR<60,.N,]/data.main[!is.na(year5GFR),.N,]*100,3)),
-                        c(10,data.main[!is.na(year10GFR),.N,],data.main[year10GFR<60,.N,],round(data.main[year10GFR<60,.N,]/data.main[!is.na(year10GFR),.N,]*100,3)))
+eGFRbelow60ratio<-
+  t(merge(merge(data.main[year5GFR<60,.(year5GFRbelow60=.N),by=drug],
+                data.main[!is.na(year5GFR),.(year5GFR_N=.N),by=drug],
+                by="drug",all=TRUE) %>% .[,.(year5=paste(year5GFRbelow60,year5GFR_N,sep = "/"),drug),],
+    merge(data.main[year10GFR<60,.(year10GFRbelow60=.N),by=drug],
+              data.main[!is.na(year10GFR),.(year10GFR_N=.N),by=drug],
+              by="drug",all=TRUE) %>% 
+                .[,.(year10=paste(year10GFRbelow60,year10GFR_N,sep = "/"),drug),]
+    ,by="drug",all=TRUE))[2:3,]
 
-colnames(eGFRbelow60ratio)<-c("Year","eGFR 측정값 있는 N","eGFR<60","Percentage")
+colnames(eGFRbelow60ratio)<-c("Valproate","Lithium")
 
 ## ----------------------------------------
 
