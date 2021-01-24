@@ -17,6 +17,18 @@ ui <- navbarPage("Lithium",
                             )
                           )
                  ),
+                 tabPanel("N Profile",
+                          sidebarLayout(
+                            sidebarPanel(
+                            ),
+                            mainPanel(
+                              tabsetPanel(type = "pills",
+                                          tabPanel("Inclusion & Exclusion", withLoader(DTOutput("NProfile"), type="html", loader="loader6")),
+                                          tabPanel("복용년수별 환자수", withLoader(DTOutput("YearN"), type="html", loader="loader6")),
+                                          tabPanel("eGFR<60", withLoader(DTOutput("eGFRbelow60"), type="html", loader="loader6")))
+                            )
+                          )
+                 ),
                  tabPanel("Table 1", icon = icon("percentage"),
                           sidebarLayout(
                             sidebarPanel(
@@ -98,6 +110,17 @@ server <- function(input, output, session) {
     )
   })
   
+  output$NProfile <- renderDT({
+    datatable(N_profile)
+  })
+  
+  output$YearN <- renderDT({
+    datatable(Year_N, rownames=FALSE)
+  })
+  
+  output$eGFRbelow60 <- renderDT({
+    datatable(eGFRbelow60ratio)
+  })
   
   out_tb1 <- callModule(tb1module2, "tb1", data = reactive(data.main), data_label = reactive(label.main), data_varStruct = NULL, nfactor.limit = nfactor.limit)
   
@@ -218,7 +241,7 @@ server <- function(input, output, session) {
     )  %>% formatStyle("sig", target = 'row',backgroundColor = styleEqual("**", 'yellow'))
   })
   
- 
+  
 }
 
 
