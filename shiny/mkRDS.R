@@ -1,5 +1,5 @@
 
-setwd("~/ShinyApps/jihyunbaek/lithium")
+setwd("D:/2020-2/Zarathu/Lithium")
 
 library(readxl)
 library(data.table)
@@ -24,3 +24,8 @@ names(list.data) <- name.sheet
 
 ## Save to RDS
 saveRDS(list.data, "lithium.RDS")
+
+## ICD data
+ICD.data <- data.table(read_excel("ICD data.xlsx",skip=2))
+saveRDS(ICD.data,"ICD_data.RDS")
+
