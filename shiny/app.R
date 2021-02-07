@@ -1,4 +1,4 @@
-library(shiny);library(shinycustomloader);library(ggplot2);library(DT);library(survival);library(jsmodule);library(jstable)
+library(shiny);library(shinycustomloader);library(ggplot2);library(DT);library(survival);library(jsmodule);library(jstable);library(stats)
 source("global.R")
 nfactor.limit <- 20
 
