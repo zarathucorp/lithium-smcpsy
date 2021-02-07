@@ -37,7 +37,7 @@ a <- lithium$`clinical data`[xor(is.na(totDay_Lithium),is.na(totDay_Valproate)) 
                                HTN = factor(as.integer(!is.na(`고혈압 여부`))), DM = factor(as.integer(!is.na(`당뇨 여부`))), group_bipolar_schizoaffective_other)]
 
 
-
+N_profile<-cbind("총처방일수 180일 초과",NA,nrow(a))
 
 ## Date age----------------------------------------
 df <- lithium$MEDI[, NO := as.character(NO)][,.SD,]
@@ -50,6 +50,8 @@ data.main <- a %>%
 
 data.main[, Age := floor(as.numeric(as.Date(firstPrescriptionDay) - as.Date(`생년월일`))/365.25)]
 
+data.main <- data.main[Age>=18,,]
+N_profile<-rbind(N_profile,cbind("첫처방일기준 만 18세 이상",NA,data.main[,.N,]))
 
 # LithiumToxicity----------------------------------------
 
@@ -69,7 +71,6 @@ for (v in c("LithiumToxicity1.0", "LithiumToxicity0.8", "LithiumToxicity1.2")){
 }
 
 
-
 df<-lithium$`renal function & TDM`
 df$NO <- as.character(df$NO)
 df <- merge(df, lithium$`clinical data`[,.(NO,`성별`,`생년월일`),], by="NO", mult=all)
@@ -78,6 +79,7 @@ df$시행일시 <- as.Date(df$시행일시); df$생년월일 <- as.Date(df$생�
 setnames(df,c("세부검사명","시행일시","생년월일","결과","성별"),c("test", "testDate", "birthDate", "result", "sex"))
 df[,age:=as.numeric(testDate-birthDate)/365.25]
 df[,eGFR:=ifelse(test=="Creatinine",CKDEPI(result,age,sex),NA),by=seq_len(nrow(df))]
+
 
 ## data for figure 1----------------------------------------
 data.f1 <- df[!is.na(eGFR),.(NO,testDate,eGFR)]
@@ -88,7 +90,11 @@ setnames(data.f1, "testDate", "date")
 
 data.main <- merge(data.main, df[eGFR < 60, .(eGFRbelow60Date = min(testDate)), by = "NO"], all.x = TRUE) %>% 
   merge(df[test == "Creatinine", .(testNum = .N), by="NO"], by="NO", all.x=TRUE) %>% 
-  .[!is.na(testNum) & (is.na(eGFRbelow60Date) | as.Date(firstPrescriptionDay) < as.Date(eGFRbelow60Date))] 
+  .[!is.na(testNum) & (is.na(eGFRbelow60Date) | as.Date(firstPrescriptionDay) < as.Date(eGFRbelow60Date))]
+
+data.main<-merge(data.main,data.f1[,.(lastTestDate=max(date)),by="NO"])
+data.main<-data.main[testNum>=2 & (as.Date(lastTestDate)-as.Date(firstPrescriptionDay))/365.25>=0.5,,]
+N_profile<-rbind(N_profile,cbind("최소 2개 이상의 eGFR data\n(baseline & 최소 6개월 이상의 post-baseline data)",NA,data.main[,.N,]))
 
 data.main[, duration := ifelse(is.na(eGFRbelow60Date),as.Date(lastPrescriptionDay) - as.Date(firstPrescriptionDay), as.Date(eGFRbelow60Date) - as.Date(firstPrescriptionDay))]
 # duration Full
@@ -137,7 +143,58 @@ data.main<-merge(data.main,data.GFRchange,all=T)
 
 ## ----------------------------------------
 
-data.main <- data.main[, -c("NO")]  ## NO 제외
+ICD_data <- readRDS("ICD_data.RDS")
+setnames(ICD_data,c("개인정보동의여부","정렬순서"),c("Privacy Consent","NO"))
+ICD_data$NO<-ICD_data$NO %>% as.character()
+
+ICD_data<-merge(ICD_data,data.main[,.(NO,base_eGFR),],by="NO")
+
+ICD_data<-ICD_data[`Privacy Consent`=="Y" & !is.na(base_eGFR),,]
+ICD_data<-ICD_data[!is.na(base_eGFR),,]
+N_profile<-rbind(N_profile,cbind("개인정보사용미동의",as.integer(N_profile[nrow(N_profile),3])-ICD_data[,.N,],ICD_data[,.N,]))
+
+ICD_data<-ICD_data[base_eGFR>=30,,]
+N_profile<-rbind(N_profile,cbind("baseline eGFR<30",as.integer(N_profile[nrow(N_profile),3])-ICD_data[,.N,],ICD_data[,.N,]))
+
+
+ICD_data<-ICD_data[,alldiagnosis:=Reduce(paste,.SD),.SDcols=grep("진단코드",colnames(ICD_data))][,c("NO","base_eGFR","alldiagnosis"),]
+ICD_data<-ICD_data[!(alldiagnosis %like% "N0|N1" & !(alldiagnosis %like% "N09")),.SD,]
+N_profile<-rbind(N_profile,cbind("ICD N00-N08 or N10-N19",as.integer(N_profile[nrow(N_profile),3])-ICD_data[,.N,],ICD_data[,.N,]))
+
+ICD_data<-ICD_data[!(alldiagnosis %like% "T86.1"),.SD,]
+N_profile<-rbind(N_profile,cbind("ICD T86.1",as.integer(N_profile[nrow(N_profile),3])-ICD_data[,.N,],ICD_data[,.N,]))
+
+ICD_data<-ICD_data[!(alldiagnosis %like% "Z94.0"),.SD,]
+N_profile<-rbind(N_profile,cbind("ICD Z94.0",as.integer(N_profile[nrow(N_profile),3])-ICD_data[,.N,],ICD_data[,.N,]))
+colnames(N_profile)<-c("조건","제외","N")
+
+data.main <- merge(data.main,ICD_data[,.(NO),],by="NO")
+
+
+## 복용년수별 n수 ----------------------------------------
+
+Year_N<-data.frame(Year=0:26,
+                   Lithium_N=sapply(0:26,function(x) data.main[totYear_Lithium>x,.N,]),
+                   Valproate_N=sapply(0:26,function(x) data.main[totYear_Valproate>x,.N,]))
+
+
+## 5년 뒤, 10년 뒤 eGFR<60의 비율 (n수) ----------------------------------------
+
+eGFRbelow60ratio<-
+  t(merge(merge(data.main[year5GFR<60,.(year5GFRbelow60=.N),by=drug],
+                data.main[!is.na(year5GFR),.(year5GFR_N=.N),by=drug],
+                by="drug",all=TRUE) %>% .[,.(year5=paste(year5GFRbelow60,year5GFR_N,sep = "/"),drug),],
+          merge(data.main[year10GFR<60,.(year10GFRbelow60=.N),by=drug],
+                data.main[!is.na(year10GFR),.(year10GFR_N=.N),by=drug],
+                by="drug",all=TRUE) %>% 
+            .[,.(year10=paste(year10GFRbelow60,year10GFR_N,sep = "/"),drug),]
+          ,by="drug",all=TRUE))[2:3,]
+
+colnames(eGFRbelow60ratio)<-c("Valproate","Lithium")
+
+## ----------------------------------------
+
+data.main <- data.main[, -c("NO", "lastTestDate")]  ## NO 제외
 
 label.main <- jstable::mk.lev(data.main)
 
@@ -163,5 +220,7 @@ label.main[variable == "year12GFR", `:=`(var_label = "복용 12년차 GFR")]
 label.main[variable == "year15GFR", `:=`(var_label = "복용 15년차 GFR")]
 label.main[variable == "year20GFR", `:=`(var_label = "복용 20년차 GFR")]
 
-## variable order: 미리 만들어놓은 KM, cox 모듈용
+
+## variable order : 미리 만들어놓은 KM, cox 모듈용
+
 varlist_kmcox <- list(variable = c("eGFRbelow60", "year_FU", "drug", setdiff(names(data.main), c("eGFRbelow60", "year_FU", "drug" ))))
