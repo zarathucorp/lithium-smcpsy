@@ -184,12 +184,12 @@ Year_N<-data.frame(Year=0:26,
                    Valproate_N=sapply(0:26,function(x) data.main[totYear_Valproate>x,.N,]))
 
 
-## 5년 뒤, 10년 뒤 eGFR<60의 비율 (n수) ----------------------------------------
+## 연차별 eGFR<60의 비율 (n수) ----------------------------------------
 
 data.f1<-merge(data.f1,data.main[,.(NO),],all.y=TRUE)
 
 eGFRbelow60ratio<-
-  lapply(1:26,function(x){
+  lapply(0:26,function(x){
   NthYear<-unique(data.f1[(365.25*x)<cumulativePrescriptionDay & cumulativePrescriptionDay<(365.25*(x+1)),.(NthYeareGFR=mean(eGFR,na.rm=T),drug),by="NO"])
   nth<-merge(NthYear[NthYeareGFR<60,.(below60=.N),by=drug],NthYear[,.N,by=drug],by="drug",all=TRUE)
   if(NthYear[drug==1,.N,]==0){  nth<-rbind(nth,data.table(drug=1,below60="NA",N="NA"))  }
@@ -198,9 +198,14 @@ eGFRbelow60ratio<-
   nth<-transpose(nth[,4,])
   return(nth)}) %>% Reduce(rbind,.)
 
+eGFRbelow60ratio<-rbind(
+  merge(data.main[base_eGFR<60,.(aa=.N),by=drug],data.main[,.(bb=.N),by=drug],by="drug",all=TRUE) %>% 
+  .[,.(cc=paste(aa,bb,sep="/")),by="drug"] %>% .[,.(cc),] %>% transpose,
+  eGFRbelow60ratio)
+
 eGFRbelow60ratio<-as.data.frame(eGFRbelow60ratio)
 colnames(eGFRbelow60ratio)<-c("Valproate","Lithium")
-rownames(eGFRbelow60ratio)<-unlist(lapply(1:26,function(x){paste0("Year ",x)}))
+rownames(eGFRbelow60ratio)<-c("baseline",unlist(lapply(0:26,function(x){paste0("Year ",x)})))
 
 ## ----------------------------------------
 
