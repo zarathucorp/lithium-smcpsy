@@ -105,7 +105,8 @@ data.main[, `:=`(year_FU= duration/365.25, totYear_Lithium = totDay_Lithium/365.
 setnames(data.main, "성별", "Sex")
 data.main[, Sex := factor(Sex)]
 
-data.main <- data.main[, .SD, .SDcols = -c("생년월일", "firstPrescriptionDay", "lastPrescriptionDay", "eGFRbelow60Date", "duration", "totDay_Valproate", "totDay_Lithium","testNum")]
+data.main <- data.main[, .SD, .SDcols = -c("생년월일", "firstPrescriptionDay", "lastPrescriptionDay", "duration", "totDay_Valproate", "totDay_Lithium","testNum")]
+
 
 ## Figure 1 data----------------------------------------
 
@@ -184,7 +185,7 @@ Year_N<-data.frame(Year=0:26,
                    Valproate_N=sapply(0:26,function(x) data.main[totYear_Valproate>x,.N,]))
 
 
-## 연차별 eGFR<60의 비율 (n수) ----------------------------------------
+## 해당 연차에 eGFR<60 된 n수 ----------------------------------------
 
 data.f1<-merge(data.f1,data.main[,.(NO),],all.y=TRUE)
 
@@ -207,6 +208,21 @@ eGFRbelow60ratio<-as.data.frame(eGFRbelow60ratio)
 colnames(eGFRbelow60ratio)<-c("Valproate","Lithium")
 rownames(eGFRbelow60ratio)<-c("baseline",unlist(lapply(0:26,function(x){paste0("Year ",x)})))
 
+## eGFR<60 최초발생일 연차별 n수
+
+
+findCumDay<-function(ID,eGFRbelow60Date){
+  return(data.f1[NO==ID & date==eGFRbelow60Date,cumulativePrescriptionDay])
+}
+
+dt<-data.main[eGFRbelow60==1,.(dd=findCumDay(NO,eGFRbelow60Date)),by=c("NO","eGFRbelow60Date")]
+datatable(dt)
+
+colnames(N_profile)<-c("조건","제외","N")
+colnames(N_profile)<-c("조건","제외","N")
+colnames(N_profile)<-c("조건","제외","N")
+colnames(N_profile)<-c("조건","제외","N")
+colnames(N_profile)<-c("조건","제외","N")
 ## ----------------------------------------
 
 data.main <- data.main[, -c("NO", "lastTestDate")]  ## NO 제외
