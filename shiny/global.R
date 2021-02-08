@@ -210,19 +210,31 @@ rownames(eGFRbelow60ratio)<-c("baseline",unlist(lapply(0:26,function(x){paste0("
 
 ## eGFR<60 최초발생일 연차별 n수
 
-
-findCumDay<-function(ID,eGFRbelow60Date){
-  return(data.f1[NO==ID & date==eGFRbelow60Date,cumulativePrescriptionDay])
+findCumYear<-function(ID,eGFRbelow60Date){
+  return(data.f1[NO==ID & date==eGFRbelow60Date,cumulativePrescriptionYear])
 }
 
-dt<-data.main[eGFRbelow60==1,.(dd=findCumDay(NO,eGFRbelow60Date)),by=c("NO","eGFRbelow60Date")]
-datatable(dt)
+dt<-unique(data.main[eGFRbelow60==1,.(yy=findCumYear(NO,eGFRbelow60Date),drug),by=c("NO","eGFRbelow60Date")])
 
-colnames(N_profile)<-c("조건","제외","N")
-colnames(N_profile)<-c("조건","제외","N")
-colnames(N_profile)<-c("조건","제외","N")
-colnames(N_profile)<-c("조건","제외","N")
-colnames(N_profile)<-c("조건","제외","N")
+eGFRbelow60Years<-
+  lapply(0:20,function(x){
+    nth<-dt[x<=yy & yy<x+1,.N,by=drug]
+    if(dt[x<=yy & yy<x+1 & drug==0,.N,]==0){  nth<-rbind(nth,data.table(drug=0, N=0))  }
+    if(dt[x<=yy & yy<x+1 & drug==1,.N,]==0){  nth<-rbind(nth,data.table(drug=1, N=0))  }
+    nth<-transpose(nth[order(drug)])[2]
+  }) %>% Reduce(rbind,.)
+
+eGFRbelow60Years <- as.data.frame(eGFRbelow60Years)
+
+colnames(eGFRbelow60Years)<-c("Valproate","Lithium")
+rownames(eGFRbelow60Years)<-unlist(lapply(0:20,function(x){paste0("Year ",x)}))
+
+eGFRbelow60Years$Valproate <- as.integer(eGFRbelow60Years$Valproate)
+eGFRbelow60Years$Lithium <- as.integer(eGFRbelow60Years$Lithium)
+
+eGFRbelow60Years<-rbind(eGFRbelow60Years,
+                        data.frame(row.names="Sum",Valproate=sum(eGFRbelow60Years$Valproate),Lithium=sum(eGFRbelow60Years$Lithium)))
+
 ## ----------------------------------------
 
 data.main <- data.main[, -c("NO", "lastTestDate")]  ## NO 제외
