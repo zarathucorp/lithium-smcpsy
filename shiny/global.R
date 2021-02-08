@@ -124,7 +124,6 @@ data.f1[, cumulativePrescriptionDay := cumsum(maxday),by=.(NO)]
 data.f1 <- data.f1[!is.na(eGFR), !c("maxday","drug")]
 data.f1 <- merge(data.f1, data.main[,.(NO,drug),], by="NO")
 
-
 ## eGFR linear regression ---------------------------------------
 
 data.f1[,cumulativePrescriptionYear:=cumulativePrescriptionDay/365.25,]
@@ -187,17 +186,21 @@ Year_N<-data.frame(Year=0:26,
 
 ## 5년 뒤, 10년 뒤 eGFR<60의 비율 (n수) ----------------------------------------
 
-eGFRbelow60ratio<-
-  t(merge(merge(data.main[year5GFR<60,.(year5GFRbelow60=.N),by=drug],
-                data.main[!is.na(year5GFR),.(year5GFR_N=.N),by=drug],
-                by="drug",all=TRUE) %>% .[,.(year5=paste(year5GFRbelow60,year5GFR_N,sep = "/"),drug),],
-          merge(data.main[year10GFR<60,.(year10GFRbelow60=.N),by=drug],
-                data.main[!is.na(year10GFR),.(year10GFR_N=.N),by=drug],
-                by="drug",all=TRUE) %>% 
-            .[,.(year10=paste(year10GFRbelow60,year10GFR_N,sep = "/"),drug),]
-          ,by="drug",all=TRUE))[2:3,]
+data.f1<-merge(data.f1,data.main[,.(NO),],all.y=TRUE)
 
+eGFRbelow60ratio<-
+  lapply(1:26,function(x){
+  NthYear<-unique(data.f1[(365.25*x)<cumulativePrescriptionDay & cumulativePrescriptionDay<(365.25*(x+1)),.(NthYeareGFR=mean(eGFR,na.rm=T),drug),by="NO"])
+  nth<-merge(NthYear[NthYeareGFR<60,.(below60=.N),by=drug],NthYear[,.N,by=drug],by="drug",all=TRUE)
+  if(NthYear[drug==1,.N,]==0){  nth<-rbind(nth,data.table(drug=1,below60="NA",N="NA"))  }
+  if(NthYear[drug==0,.N,]==0){  nth<-rbind(nth,data.table(drug=0,below60="NA",N="NA"))  }
+  nth[,yn:=paste(below60,N,sep = "/"),]  
+  nth<-transpose(nth[,4,])
+  return(nth)}) %>% Reduce(rbind,.)
+
+eGFRbelow60ratio<-as.data.frame(eGFRbelow60ratio)
 colnames(eGFRbelow60ratio)<-c("Valproate","Lithium")
+rownames(eGFRbelow60ratio)<-unlist(lapply(1:26,function(x){paste0("Year ",x)}))
 
 ## ----------------------------------------
 
