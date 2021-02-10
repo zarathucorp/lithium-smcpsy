@@ -1,4 +1,4 @@
-library(shiny);library(shinycustomloader);library(ggplot2);library(DT);library(survival);library(jsmodule);library(jstable);library(stats)
+library(shiny);library(shinycustomloader);library(ggplot2);library(survival);library(jsmodule)
 source("global.R")
 nfactor.limit <- 20
 
@@ -20,6 +20,7 @@ ui <- navbarPage("Lithium",
                  tabPanel("N Profile",
                           sidebarLayout(
                             sidebarPanel(
+                              
                             ),
                             mainPanel(
                               tabsetPanel(type = "pills",
@@ -100,7 +101,7 @@ ui <- navbarPage("Lithium",
 server <- function(input, output, session) {
   
   output$data <- renderDT({
-    datatable(data.main, filter = "top", rownames = F, caption = "Data",
+    datatable(data.main, rownames = F, caption = "Data",
               options = c(opt.data("data"), list(scrollX = T)))
   })
   
