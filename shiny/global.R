@@ -180,7 +180,7 @@ N_profile<-rbind(N_profile,cbind("baseline eGFR<30",as.integer(N_profile[nrow(N_
 
 ICD_data<-merge(ICD_data,data.main[,.(NO,drug),],by="NO")
 
-ICD_data<-ICD_data[,alldiagnosis:=Reduce(paste,.SD),.SDcols=grep("진단코드",colnames(ICD_data))][,c("NO","base_eGFR","alldiagnosis"),]
+ICD_data<-ICD_data[,alldiagnosis:=Reduce(paste,.SD),.SDcols=grep("진단코드",colnames(ICD_data))][,c("NO","drug","alldiagnosis"),]
 ICD_data<-ICD_data[!(alldiagnosis %like% "N0|N1" & !(alldiagnosis %like% "N09")),.SD,]
 N_profile<-rbind(N_profile,cbind("ICD N00-N08 or N10-N19",as.integer(N_profile[nrow(N_profile),3])-ICD_data[,.N,],ICD_data[,.N,],ICD_data[drug==0,.N,],ICD_data[drug==1,.N,]))
 
@@ -217,6 +217,12 @@ Year_N<-data.frame(Year=0:26,
 ## 해당 연차에 eGFR<60 된 n수 ----------------------------------------
 
 data.f1<-merge(data.f1,data.main[,.(NO),],all.y=TRUE)
+
+data.f1<-merge(data.f1,data.main[,.(NO,base_eGFR),],by="NO",all.x=TRUE)
+data.f1<-data.f1[!(cumulativePrescriptionDay==0 & eGFR!=base_eGFR),,]
+data.f1<-data.f1[,-c("base_eGFR"),]
+
+#data.f1<-data.f1[eGFR>=30,,]
 
 colnames(N_profile)<-c("조건","제외","N","Valproate","Lithium")
 
