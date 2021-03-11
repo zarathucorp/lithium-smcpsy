@@ -276,7 +276,7 @@ eGFRbelow60Years<-rbind(eGFRbelow60Years,
 
 ## ----------------------------------------
 
-data.main <- data.main[, -c("NO", "lastTestDate")]  ## NO 제외
+data.main <- data.main[, -c("NO", "lastTestDate", "eGFRbelow60Date")]  ## NO 제외
 
 label.main <- jstable::mk.lev(data.main)
 
