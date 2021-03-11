@@ -200,10 +200,10 @@ W210226$NO<-W210226$NO %>% as.character()
 W210226<-W210226[`Privacy Consent`=="Y",,]
 W210226<-merge(W210226,data.main[,.(NO),],by="NO")
 
-W210226[,schizo:=(dcode %like% "F2"),]
-W210226[,mood:=(dcode %like% "F3"),]
-W210226[,bipolar:=((dcode %like% "F30")|(dcode %like% "F31")),]
-W210226[,depressive:=((dcode %like% "F32")|(dcode %like% "F33")),]
+W210226[,schizo:=factor(as.integer((dcode %like% "F2"))),]
+W210226[,mood:=factor(as.integer((dcode %like% "F3"))),]
+W210226[,bipolar:=factor(as.integer(((dcode %like% "F30")|(dcode %like% "F31")))),]
+W210226[,depressive:=factor(as.integer(((dcode %like% "F32")|(dcode %like% "F33")))),]
 
 data.main<-merge(data.main,W210226[,c("NO","schizo","mood","bipolar","depressive"),],by="NO")
 
