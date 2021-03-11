@@ -3,6 +3,8 @@ source("global.R")
 nfactor.limit <- 20
 
 ui <- navbarPage("Lithium",
+                 ## Theme
+                 theme = bslib::bs_theme(version = 4),
                  tabPanel("Data", icon = icon("table"),
                           sidebarLayout(
                             sidebarPanel(

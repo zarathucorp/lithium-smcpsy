@@ -1,5 +1,5 @@
 
-#setwd("~/ShinyApps/jihyunbaek/lithium2")
+#setwd("~/ShinyApps/jihyunbaek/lithium")
 
 library(readxl)
 library(data.table)
@@ -28,4 +28,10 @@ saveRDS(list.data, "lithium.RDS")
 ## ICD data
 ICD.data <- data.table(read_excel("ICD data.xlsx",skip=2))
 saveRDS(ICD.data,"ICD_data.RDS")
+
+# W21
+W210226 <- data.table(read_excel("W210226-1(환자번호 지움) (1).xlsx", skip = 2))
+W210216 <- data.table(read_excel("W210216-4(환자번호 지움) (1).xlsx", skip = 2))
+
+saveRDS(W210226, "W210226.RDS");saveRDS(W210216, "W210216.RDS")
 
