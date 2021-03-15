@@ -67,6 +67,30 @@ data.main <- a %>%
 data.main[, Age := floor(as.numeric(as.Date(firstPrescriptionDay) - as.Date(`생년월일`))/365.25)]
 
 
+## NEW HTN/DM
+HTN_DM <- apply(ICD_data, 1, function(x){
+  HTN <- substr(x, 1, 3) %in% c(paste0("I", 10:16), 401:405)
+  HTN_which <- which(HTN == T)[1]
+  HTN_yn <- as.integer(!is.na(HTN_which))
+  HTN_date <- ifelse(HTN_yn == 0, NA, x[HTN_which - 1])
+  
+  DM <- (substr(x, 1, 3) %in% paste0("E", c("08", "09", 10:13))) | (substr(x, 1, 4) %in% paste0("250.", 0:9)) 
+  DM_which <- which(DM == T)[1]
+  DM_yn <- as.integer(!is.na(DM_which))
+  DM_date <- ifelse(DM_yn == 0, NA, x[DM_which - 1])
+  
+  return(c(HTN2 = HTN_yn, HTN_date = HTN_date, DM2 = DM_yn, DM_date = DM_date))
+}) %>% t %>% data.table
+
+HTN_DM$NO <- ICD_data$NO
+
+HTN_DM_info <- merge(data.main[, c("NO", "firstPrescriptionDay")], HTN_DM, by = "NO")
+HTN_DM_info[, `:=`(HTN = factor(as.integer(HTN2 == 1 & as.Date(HTN_date) <= as.Date(firstPrescriptionDay))),
+                   DM = factor(as.integer(DM2 == 1 & as.Date(DM_date) <= as.Date(firstPrescriptionDay))))]
+## merge
+data.main <- merge(data.main[, -c("HTN", "DM")], HTN_DM_info[, c("NO", "HTN", "DM")], by = "NO")
+
+
 W210216 <- readRDS("W210216.RDS")
 setnames(W210216,c("개인정보동의여부","정렬순서"),c("Privacy Consent","NO"))
 W210216$NO<-W210216$NO %>% as.character()
@@ -306,5 +330,3 @@ label.main[variable == "year20GFR", `:=`(var_label = "복용 20년차 GFR")]
 ## variable order : 미리 만들어놓은 KM, cox 모듈용
 
 varlist_kmcox <- list(variable = c("eGFRbelow60", "year_FU", "drug", setdiff(names(data.main), c("eGFRbelow60", "year_FU", "drug" ))))
-
-
