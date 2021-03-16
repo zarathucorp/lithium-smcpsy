@@ -41,7 +41,7 @@ N_profile<-cbind("전체",NA,nrow(a),NA,NA)
 ## NO. list: TDM both
 NO.tdmboth <- lithium$`renal function & TDM`[, NO := as.character(NO)][`세부검사명` %in% c("Lithium", "Valproic Acid")][, c("NO", "세부검사명")][, unique(`세부검사명`), by = "NO"][, names(which(table(NO) == 2))]
 
-a <- a[xor(is.na(totDay_Lithium),is.na(totDay_Valproate)),,][!(NO %in% NO.tdmboth)]
+a <- a[xor(is.na(totDay_Lithium),is.na(totDay_Valproate)),,][!(NO %in% c("2250", NO.tdmboth))]
 
 N_profile<-rbind(N_profile,cbind("Li+Valp combination",as.integer(N_profile[nrow(N_profile),3])-nrow(a),nrow(a),NA,NA))
 
