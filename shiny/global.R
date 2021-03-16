@@ -38,7 +38,11 @@ a <- lithium$`clinical data`[,
 
 N_profile<-cbind("전체",NA,nrow(a),NA,NA)
 
-a<-a[xor(is.na(totDay_Lithium),is.na(totDay_Valproate)),,]
+## NO. list: TDM both
+NO.tdmboth <- lithium$`renal function & TDM`[, NO := as.character(NO)][`세부검사명` %in% c("Lithium", "Valproic Acid")][, c("NO", "세부검사명")][, unique(`세부검사명`), by = "NO"][, names(which(table(NO) == 2))]
+
+a <- a[xor(is.na(totDay_Lithium),is.na(totDay_Valproate)),,][!(NO %in% NO.tdmboth)]
+
 N_profile<-rbind(N_profile,cbind("Li+Valp combination",as.integer(N_profile[nrow(N_profile),3])-nrow(a),nrow(a),NA,NA))
 
 a[, drug := factor(ifelse(is.na(totDay_Lithium), 0, 1))]
@@ -158,6 +162,10 @@ setnames(data.main, "성별", "Sex")
 data.main[, Sex := factor(Sex)]
 
 data.main <- data.main[, .SD, .SDcols = -c("생년월일", "firstPrescriptionDay", "lastPrescriptionDay", "duration", "totDay_Valproate", "totDay_Lithium","testNum")]
+
+
+
+N_profile<-rbind(N_profile,cbind("첫처방일기준 만 18세 이상",as.integer(N_profile[nrow(N_profile),3])-data.main[,.N,],data.main[,.N,],data.main[drug==0,.N,],data.main[drug==1,.N,]))
 
 
 ## Figure 1 data----------------------------------------
@@ -330,3 +338,5 @@ label.main[variable == "year20GFR", `:=`(var_label = "복용 20년차 GFR")]
 ## variable order : 미리 만들어놓은 KM, cox 모듈용
 
 varlist_kmcox <- list(variable = c("eGFRbelow60", "year_FU", "drug", setdiff(names(data.main), c("eGFRbelow60", "year_FU", "drug" ))))
+
+
